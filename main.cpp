@@ -19,71 +19,71 @@
     using namespace std;
 
 
-struct Instruction {
-    string binary;
-    string opcode;
-    char type;
+    struct Instruction {
+        string binary;
+        string opcode;
+        char type;
 
-    unsigned rd = UINT_MAX;
-    unsigned funct3 = UINT_MAX;
-    unsigned rs1 = UINT_MAX;
-    unsigned rs2 = UINT_MAX;
-    unsigned funct7 = UINT_MAX;
-    unsigned imm = UINT_MAX;
+        unsigned rd = UINT_MAX;
+        unsigned funct3 = UINT_MAX;
+        unsigned rs1 = UINT_MAX;
+        unsigned rs2 = UINT_MAX;
+        unsigned funct7 = UINT_MAX;
+        unsigned imm = UINT_MAX;
 
-    void print() {
-        cout << binary << " ";
-        cout << "formato: " << type << " ";
-        if(type == 'N') cout << "(NOP) ";
-        cout << "opcode: " << opcode << " ";
+        void print() {
+            cout << binary << " ";
+            cout << "formato: " << type << " ";
+            if(type == 'N') cout << "(NOP) ";
+            cout << "opcode: " << opcode << " ";
 
-        if (rd != UINT_MAX)     cout << "rd: " << rd << " ";
-        if (funct3 != UINT_MAX) cout << "funct3: " << funct3 << " ";
-        if (rs1 != UINT_MAX)    cout << "rs1: " << rs1 << " ";
-        if (rs2 != UINT_MAX)    cout << "rs2: " << rs2 << " ";
-        if (funct7 != UINT_MAX) cout << "funct7: " << funct7 << " ";
-        if (imm != UINT_MAX)    cout << "imm: " << imm << " ";
+            if (rd != UINT_MAX)     cout << "rd: " << rd << " ";
+            if (funct3 != UINT_MAX) cout << "funct3: " << funct3 << " ";
+            if (rs1 != UINT_MAX)    cout << "rs1: " << rs1 << " ";
+            if (rs2 != UINT_MAX)    cout << "rs2: " << rs2 << " ";
+            if (funct7 != UINT_MAX) cout << "funct7: " << funct7 << " ";
+            if (imm != UINT_MAX)    cout << "imm: " << imm << " ";
 
-        cout << endl;
-    }
-    
-    void write(const string& filename) {
-         ofstream file(filename, ios::app);
-         if (!file.is_open()) {
-             cerr << "Erro ao abrir o arquivo: " << filename << endl;
-             return;
+            cout << endl;
+        }
+        
+        void write(const string& filename) {
+             ofstream file(filename, ios::app);
+             if (!file.is_open()) {
+                 cerr << "Erro ao abrir o arquivo: " << filename << endl;
+                 return;
+             }
+
+             file << binary << " ";
+             if(type == 'N') file << "(NOP) ";
+             file << "formato: " << type << " ";
+             file << "opcode: " << opcode << " ";
+
+             if (rd != UINT_MAX)     file << "rd: " << rd << " ";
+             if (funct3 != UINT_MAX) file << "funct3: " << funct3 << " ";
+             if (rs1 != UINT_MAX)    file << "rs1: " << rs1 << " ";
+             if (rs2 != UINT_MAX)    file << "rs2: " << rs2 << " ";
+             if (funct7 != UINT_MAX) file << "funct7: " << funct7 << " ";
+             if (imm != UINT_MAX)    file << "imm: " << imm << " ";
+
+             file << endl;
+             file.close();
          }
+    };
 
-         file << binary << " ";
-         if(type == 'N') file << "(NOP) ";
-         file << "formato: " << type << " ";
-         file << "opcode: " << opcode << " ";
-
-         if (rd != UINT_MAX)     file << "rd: " << rd << " ";
-         if (funct3 != UINT_MAX) file << "funct3: " << funct3 << " ";
-         if (rs1 != UINT_MAX)    file << "rs1: " << rs1 << " ";
-         if (rs2 != UINT_MAX)    file << "rs2: " << rs2 << " ";
-         if (funct7 != UINT_MAX) file << "funct7: " << funct7 << " ";
-         if (imm != UINT_MAX)    file << "imm: " << imm << " ";
-
-         file << endl;
-         file.close();
-     }
-};
-
-Instruction* createNop(){
-    Instruction *nop = new Instruction();
-    nop->binary = "00000000000000000000000000010011";
-    nop->opcode = "0010011";
-    nop->type = 'N';
-    nop->rd = 0;
-    nop->rs1 = 0;
-    nop->rs2 = 0;
-    return nop;
-}
-
+    Instruction* createNop(){
+        Instruction *nop = new Instruction();
+        nop->binary = "00000000000000000000000000010011";
+        nop->opcode = "0010011";
+        nop->type = 'N';
+        nop->rd = 0;
+        nop->rs1 = 0;
+        nop->rs2 = 0;
+        return nop;
+    }
 
     vector<Instruction*> instructions;
+    vector<Instruction*> resolvedInstructions;
 
     unordered_map<char, string> hexToBinMap = {
         {'0', "0000"}, {'1', "0001"}, {'2', "0010"}, {'3', "0011"},
@@ -384,110 +384,224 @@ Instruction* createNop(){
     }
 
 
-    int main(int argc, const char * argv[]) {
-            
-        vector<string> binaries;
+
+    int detectDataHazard(Instruction *instruction, vector<Instruction*>& instructions, int index, bool forwarding = false){
+        int nopsCount = 0;
         
-        string line;
-        ifstream MyReadFile("fib_rec_hexadecimal.txt");
-        while (getline(MyReadFile, line)) {
-                line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
-                if (!line.empty()) {
-                    string binary = line;
-                    if(isHexadecimal(line)){
-                        binary = hexToBinary(line);
-                    }
-                    
-                    binaries.push_back(binary);
-                }
-        }
-        
-        for(string bin : binaries){
-            string opcode = readOpcode(bin);
-           
-             if(opcode == "0110111") readU(bin);
-             if(opcode == "1101111") readJ(bin);
-             if(opcode == "1100111"
-                || opcode == "0010011"
-                || opcode == "0001111"
-                || opcode == "0000011") readI(bin);
-             if(opcode == "1100011") readB(bin);
-             if(opcode == "0100011") readS(bin);
-             if(opcode == "0110011") readR(bin);
-        }
-        
-        // Hazard de dados
-        // sem forwarding
-        int index = 0;
-        for(Instruction *instruction : instructions){
-            instruction->print();
-            instruction->write("3-A.txt");
-            
-            if((instruction->type == 'I'
-               || instruction->type == 'R'))
+        if(forwarding){
+            if((instruction->opcode == "0000011")) //considera apenas LW quando existe o forwarding
             {
         
                 if(index + 1 < instructions.size()){ // uma instrucao a frente
                     Instruction *nextInstruction = instructions[index+1];
                     if(instruction->rd == nextInstruction->rs1 || instruction->rd == nextInstruction->rs2){
-                        Instruction *nop = createNop();
-                        nop->write("3-A.txt");
-                        nop->write("3-A.txt");
-                        cout << "Hazard de dados encontrado a partir da instruçao " << index + 1 << " inserir 2 NOPS aqui" <<endl;
-                    }else  if(index + 2 < instructions.size()){ // duas instrucoes a frente
-                        Instruction *nextInstruction = instructions[index+2];
-                        if(instruction->rd == nextInstruction->rs1 || instruction->rd == nextInstruction->rs2){
-                            Instruction *nop = createNop();
-                            nop->write("3-A.txt"); // na verdade esse nop precisa ser inserido DEPOIS da proxima instrucao
-                            cout << "Hazard de dados encontrado a partir da instruçao " << index + 1 << " inserir 1 NOPS aqui" <<endl;
-                        }
+                        nopsCount = 1;
                     }
                 }
             }
-            index++;
+            return nopsCount;
         }
         
-        cout << endl;
-        
-        // Hazard de dados
-        // com forwarding
-        index = 0;
-        for(Instruction *instruction : instructions){
-            instruction->print();
-            instruction->write("3-B.txt");
-            
-            if((instruction->opcode == "0000011")) //considera apenas LW
-            {
-        
-                if(index + 1 < instructions.size()){ // uma instrucao a frente
-                    Instruction *nextInstruction = instructions[index+1];
+     
+        if((instruction->type == 'I'
+           || instruction->type == 'R') && instruction->opcode != "1100111") // considera opcode da instrução jalr
+        {
+            if(index + 1 < instructions.size()){
+                Instruction *nextInstruction = instructions[index+1]; // uma instrucao a frente
+                if(instruction->rd == nextInstruction->rs1 || instruction->rd == nextInstruction->rs2){
+                    nopsCount = 2;
+                }else  if(index + 2 < instructions.size()){
+                    Instruction *nextInstruction = instructions[index+2]; // duas instrucoes a frente
                     if(instruction->rd == nextInstruction->rs1 || instruction->rd == nextInstruction->rs2){
-                        Instruction *nop = createNop();
-                        nop->write("3-B.txt");
-                        cout << "Hazard de dados encontrado a partir da instruçao " << index + 1 << " inserir 1 NOPS aqui" <<endl;
+                        nopsCount = 1;
                     }
                 }
             }
-            
-            index++;
         }
+      
         
-        cout << endl;
-        index = 0;
-        // Hazard de controle com e sem forwarding
-        for(Instruction *instruction : instructions){
-            instruction->print();
-            instruction->write("4-A-B.txt");
-            if(instruction->type == 'B'|| instruction->type == 'J' || (instruction->type == 'I' && instruction->opcode == "1100111")){ // considera opcode da jalr
-                Instruction *nop = createNop();
-                nop->write("4-A-B.txt");
-                cout << "Hazard de controle encontrado a partir da instruçao " << index + 1 << " inserir 1 NOP aqui" <<endl;
-            }
-            index++;
-        }
-        
-        for(Instruction *instruction : instructions){
-            delete instruction;
-        }
-            
+        return nopsCount;
     }
+
+
+    int detectControlHazard(Instruction *instruction, vector<Instruction*>& instructions, int index){
+        int nopsCount = 0;
+        if(instruction->type == 'B'|| instruction->type == 'J' || (instruction->type == 'I' && instruction->opcode == "1100111")){ // considera opcode da instrução jalr
+            nopsCount = 1;
+        }
+        return nopsCount;
+    }
+
+void calcExtraCost(string title, vector<Instruction*>& instructions, vector<Instruction*>& resolvedInstructions){
+    float extraCost = (float) resolvedInstructions.size() / (float) instructions.size();
+    float percent = (extraCost - 1) * 100;
+    cout << title << endl;
+    cout << "calcExtraCost: " << extraCost << " ("<< percent << "%)" << endl;
+    cout << "QTD de instruções originais: " << instructions.size() << endl;
+    cout << "QTD de instruções após inserção de nops: " << resolvedInstructions.size() << endl;
+}
+
+void writeFile(string filename, vector<Instruction*>& resolvedInstructions){
+    for(Instruction *instruction : resolvedInstructions){
+        instruction->write(filename);
+    }
+}
+
+
+
+int main(int argc, const char * argv[]) {
+    
+    vector<string> binaries;
+    
+    string line;
+    ifstream MyReadFile("fib_rec_hexadecimal.txt");
+    while (getline(MyReadFile, line)) {
+        line.erase(remove_if(line.begin(), line.end(), ::isspace), line.end());
+        if (!line.empty()) {
+            string binary = line;
+            if(isHexadecimal(line)){
+                binary = hexToBinary(line);
+            }
+            
+            binaries.push_back(binary);
+        }
+    }
+    
+    for(string bin : binaries){
+        string opcode = readOpcode(bin);
+        
+        if(opcode == "0110111") readU(bin);
+        if(opcode == "1101111") readJ(bin);
+        if(opcode == "1100111"
+           || opcode == "0010011"
+           || opcode == "0001111"
+           || opcode == "0000011") readI(bin);
+        if(opcode == "1100011") readB(bin);
+        if(opcode == "0100011") readS(bin);
+        if(opcode == "0110011") readR(bin);
+    }
+    
+    // 3.A -------------------------------------------------------------------------
+    // Hazard de dados
+    // sem forwarding
+    int index = 0;
+    for(Instruction *instruction : instructions){
+        resolvedInstructions.push_back(instruction);
+        
+        int nopsCount = detectDataHazard(instruction, instructions, index);
+        
+        for(int i = 0; i< nopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+        
+        index++;
+    }
+    
+    writeFile("3-A.txt", resolvedInstructions);
+    calcExtraCost("Hazard de dados sem forwarding:", instructions, resolvedInstructions);
+    cout << endl;
+        
+    // 3.B -------------------------------------------------------------------------
+    // Hazard de dados
+    // com forwarding
+    index = 0;
+    resolvedInstructions.clear();
+    for(Instruction *instruction : instructions){
+        resolvedInstructions.push_back(instruction);
+            
+        int nopsCount = detectDataHazard(instruction, instructions, index, true);
+            
+        for(int i = 0; i< nopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+            
+        index++;
+    }
+    writeFile("3-B.txt", resolvedInstructions);
+    calcExtraCost("Hazard de dados com forwarding:", instructions, resolvedInstructions);
+    cout << endl; // -----------------------------------------------------------------
+
+    
+
+    //4 Hazard de controle (com e sem forwarding) ------------------------------------
+    index = 0;
+    resolvedInstructions.clear();
+    for(Instruction *instruction : instructions){
+        resolvedInstructions.push_back(instruction);
+        int nopsCount = detectControlHazard(instruction, instructions, index);
+            
+        for(int i = 0; i< nopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+        index++;
+    }
+    writeFile("4-A-B.txt", resolvedInstructions);
+    calcExtraCost("Hazard de controle com e sem forwarding:", instructions, resolvedInstructions);
+    cout << endl; // -----------------------------------------------------------------
+    
+        
+    // 5.A solução integrada hazards de dados e controle (sem forwarding) --------------------------------------------
+    index = 0;
+    resolvedInstructions.clear();
+    for(Instruction *instruction : instructions){
+        resolvedInstructions.push_back(instruction);
+        
+        int nopsCount = detectDataHazard(instruction, instructions, index);
+        for(int i = 0; i< nopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+        
+        int controlNopsCount = detectControlHazard(instruction, instructions, index);
+        for(int i = 0; i< controlNopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+        
+        index++;
+    }
+    writeFile("5-A.txt", resolvedInstructions);
+    calcExtraCost("Solução integrada hazards de dados e controle (sem forwarding):", instructions, resolvedInstructions);
+    cout << endl; // ----------------------------------------------------------------------------------------------------
+        
+    
+    // 5.B solução integrada hazards de dados e controle (com forwarding) -----------------------------------------------
+    index = 0;
+    resolvedInstructions.clear();
+    for(Instruction *instruction : instructions){
+        resolvedInstructions.push_back(instruction);
+        
+        int nopsCount = detectDataHazard(instruction, instructions, index, true);
+        for(int i = 0; i< nopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+        
+        int controlNopsCount = detectControlHazard(instruction, instructions, index);
+        for(int i = 0; i< controlNopsCount; i++){
+            Instruction *nop = createNop();
+            resolvedInstructions.push_back(nop);
+        }
+            
+            
+        index++;
+    }
+    writeFile("5-B.txt", resolvedInstructions);
+    calcExtraCost("Solução integrada hazards de dados e controle (com forwarding):", instructions, resolvedInstructions);
+    cout << endl; // ----------------------------------------------------------------------------------------------------
+        
+        
+    for(Instruction *instruction : instructions){
+        delete instruction;
+    }
+    
+    for(Instruction *instruction : resolvedInstructions){
+        delete instruction;
+    }
+        
+    
+            
+}
