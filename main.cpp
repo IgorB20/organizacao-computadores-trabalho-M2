@@ -24,12 +24,13 @@
         string opcode;
         char type;
 
+        int pc = UINT_MAX;
         unsigned rd = UINT_MAX;
         unsigned funct3 = UINT_MAX;
         unsigned rs1 = UINT_MAX;
         unsigned rs2 = UINT_MAX;
         unsigned funct7 = UINT_MAX;
-        unsigned imm = UINT_MAX;
+        int imm = UINT_MAX;
 
         void print() {
             cout << binary << " ";
@@ -448,6 +449,48 @@ void writeFile(string filename, vector<Instruction*>& resolvedInstructions){
 }
 
 
+void calcNewAddresses(vector<Instruction*>& resolvedInstructions){
+    int i = 0;
+    for(Instruction *instruction : resolvedInstructions){
+        if(instruction->type == 'B' || instruction->type == 'J'){
+          //calcular nops antes da instrucao
+            int currentInstructionIndex = i;
+            int nopsBeforeBranchOrJump = 0;
+            for(int j = currentInstructionIndex; j >= 0; j--){
+                if(resolvedInstructions[j]->type == 'N') nopsBeforeBranchOrJump++;
+            }
+            
+          //descobrir indice original da instrucao destino
+            int destinyInstructionOriginalIndex = (instruction->pc + instruction->imm) / 4; //pc branch original + deslocamento em bytes dividido por 4
+            int destinyInstructionOriginalPc = destinyInstructionOriginalIndex * 4;
+            
+            //achar novo index da instrucao destino no array resolvido
+            int destinyInstructionNewIndex = 0;
+            for(int j = 0; j < resolvedInstructions.size(); j++){
+                if(resolvedInstructions[j]->pc == destinyInstructionOriginalPc){
+                    destinyInstructionNewIndex = j;
+                    break;
+                }
+            }
+            
+            
+          //calcular nops antes da instrucao destino
+            int nopsBeforeDestiny = 0;
+            for(int j = destinyInstructionNewIndex; j >= 0; j--){
+                if(resolvedInstructions[j]->type == 'N') nopsBeforeDestiny++;
+            }
+            
+            //calculo de imediatos
+            //imm_novo = imm_antigo + 4 × (NOPs_antes_destino − NOPs_antes_branch)
+            int newImm = instruction->imm + (4 * (nopsBeforeDestiny - nopsBeforeBranchOrJump));
+            instruction->imm = newImm;
+        }
+        
+        i++;
+    }
+}
+
+
 
 int main(int argc, const char * argv[]) {
     
@@ -481,12 +524,19 @@ int main(int argc, const char * argv[]) {
         if(opcode == "0110011") readR(bin);
     }
     
+    int index = 0;
+    for(Instruction *instruction : instructions){
+        instruction->pc = index * 4; // pc orifinal de cada instrução - ocupa 4 bytes;
+        index++;
+    }
+    
     // 3.A -------------------------------------------------------------------------
     // Hazard de dados
     // sem forwarding
-    int index = 0;
+    index = 0;
     for(Instruction *instruction : instructions){
-        resolvedInstructions.push_back(instruction);
+        
+        resolvedInstructions.push_back(new Instruction(*instruction));
         
         int nopsCount = detectDataHazard(instruction, instructions, index);
         
@@ -497,19 +547,23 @@ int main(int argc, const char * argv[]) {
         
         index++;
     }
-    
+
+
     writeFile("3-A.txt", resolvedInstructions);
     calcExtraCost("Hazard de dados sem forwarding:", instructions, resolvedInstructions);
-    cout << endl;
-        
+    calcNewAddresses(resolvedInstructions);
+    writeFile("6-(3.A).txt", resolvedInstructions);
+    cout << endl; // -----------------------------------------------------------------------------
+    
+
     // 3.B -------------------------------------------------------------------------
     // Hazard de dados
     // com forwarding
     index = 0;
     resolvedInstructions.clear();
     for(Instruction *instruction : instructions){
-        resolvedInstructions.push_back(instruction);
-            
+        resolvedInstructions.push_back(new Instruction(*instruction));
+        
         int nopsCount = detectDataHazard(instruction, instructions, index, true);
             
         for(int i = 0; i< nopsCount; i++){
@@ -521,6 +575,8 @@ int main(int argc, const char * argv[]) {
     }
     writeFile("3-B.txt", resolvedInstructions);
     calcExtraCost("Hazard de dados com forwarding:", instructions, resolvedInstructions);
+    calcNewAddresses(resolvedInstructions);
+    writeFile("6-(3.B).txt", resolvedInstructions);
     cout << endl; // -----------------------------------------------------------------
 
     
@@ -529,7 +585,7 @@ int main(int argc, const char * argv[]) {
     index = 0;
     resolvedInstructions.clear();
     for(Instruction *instruction : instructions){
-        resolvedInstructions.push_back(instruction);
+        resolvedInstructions.push_back(new Instruction(*instruction));
         int nopsCount = detectControlHazard(instruction, instructions, index);
             
         for(int i = 0; i< nopsCount; i++){
@@ -540,6 +596,8 @@ int main(int argc, const char * argv[]) {
     }
     writeFile("4-A-B.txt", resolvedInstructions);
     calcExtraCost("Hazard de controle com e sem forwarding:", instructions, resolvedInstructions);
+    calcNewAddresses(resolvedInstructions);
+    writeFile("6-(4).txt", resolvedInstructions);
     cout << endl; // -----------------------------------------------------------------
     
         
@@ -547,7 +605,7 @@ int main(int argc, const char * argv[]) {
     index = 0;
     resolvedInstructions.clear();
     for(Instruction *instruction : instructions){
-        resolvedInstructions.push_back(instruction);
+        resolvedInstructions.push_back(new Instruction(*instruction));
         
         int nopsCount = detectDataHazard(instruction, instructions, index);
         for(int i = 0; i< nopsCount; i++){
@@ -565,6 +623,8 @@ int main(int argc, const char * argv[]) {
     }
     writeFile("5-A.txt", resolvedInstructions);
     calcExtraCost("Solução integrada hazards de dados e controle (sem forwarding):", instructions, resolvedInstructions);
+    calcNewAddresses(resolvedInstructions);
+    writeFile("6-(5.A).txt", resolvedInstructions);
     cout << endl; // ----------------------------------------------------------------------------------------------------
         
     
@@ -572,7 +632,7 @@ int main(int argc, const char * argv[]) {
     index = 0;
     resolvedInstructions.clear();
     for(Instruction *instruction : instructions){
-        resolvedInstructions.push_back(instruction);
+        resolvedInstructions.push_back(new Instruction(*instruction));
         
         int nopsCount = detectDataHazard(instruction, instructions, index, true);
         for(int i = 0; i< nopsCount; i++){
@@ -591,17 +651,17 @@ int main(int argc, const char * argv[]) {
     }
     writeFile("5-B.txt", resolvedInstructions);
     calcExtraCost("Solução integrada hazards de dados e controle (com forwarding):", instructions, resolvedInstructions);
-    cout << endl; // ----------------------------------------------------------------------------------------------------
-        
+    calcNewAddresses(resolvedInstructions);
+    writeFile("6-(5.B).txt", resolvedInstructions);
+    //------------------------------------------------------------------
+  
         
     for(Instruction *instruction : instructions){
         delete instruction;
     }
-    
+           
     for(Instruction *instruction : resolvedInstructions){
         delete instruction;
     }
-        
-    
             
 }
